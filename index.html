@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Tenant RLS Readiness Audit — find the tenant-data leaks before your customers do</title>
+<meta name="description" content="A fixed-fee, read-only audit of your Postgres/Supabase multi-tenant isolation. Find the cross-tenant leaks before launch. Deliverable: a triaged report with exact remediation SQL.">
+<style>
+ :root{--ink:#1a1a2e;--accent:#27ae60;--crit:#c0392b;--bg:#f7f7fb}
+ *{box-sizing:border-box} body{font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);margin:0}
+ .wrap{max-width:760px;margin:0 auto;padding:0 1.5rem}
+ header{background:var(--ink);color:#fff;padding:3.5rem 0 3rem}
+ header h1{font-size:2.1rem;margin:0 0 .6rem;line-height:1.2}
+ header p{font-size:1.15rem;color:#cfd2e8;margin:0 0 1.5rem;max-width:600px}
+ .cta{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;padding:.8rem 1.6rem;border-radius:8px}
+ .cta.alt{background:transparent;border:1px solid #555;color:#cfd2e8;margin-left:.5rem}
+ section{padding:2.5rem 0;border-bottom:1px solid #eee}
+ h2{font-size:1.45rem;margin:0 0 1rem}
+ .lead{color:#444;font-size:1.05rem}
+ .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0}
+ .card{background:var(--bg);border-radius:10px;padding:1.1rem 1.2rem}
+ .card h3{margin:0 0 .3rem;font-size:1rem} .card p{margin:0;font-size:.9rem;color:#555}
+ .checks li{margin:.4rem 0} .checks code{background:var(--bg);padding:.1rem .35rem;border-radius:4px;font-size:.85rem}
+ .price{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem}
+ .tier{flex:1;min-width:220px;border:1px solid #e3e3ee;border-radius:12px;padding:1.3rem}
+ .tier.feature{border-color:var(--accent);box-shadow:0 4px 18px rgba(39,174,96,.12)}
+ .tier .amt{font-size:1.8rem;font-weight:700} .tier .per{color:#888;font-size:.85rem}
+ .tier ul{padding-left:1.1rem;margin:.7rem 0 0;font-size:.9rem;color:#555} .tier li{margin:.25rem 0}
+ .anchor{background:#fff7f0;border-left:4px solid #e67e22;padding:.9rem 1.1rem;border-radius:0 8px 8px 0;font-size:.95rem;margin:1rem 0}
+ .proof{background:var(--bg);border-radius:10px;padding:1.2rem;font-size:.95rem}
+ .honest{background:#f3f6ff;border-left:4px solid #3498db;padding:.9rem 1.1rem;border-radius:0 8px 8px 0;font-size:.92rem}
+ footer{padding:2.5rem 0;color:#888;font-size:.85rem}
+ a{color:#1a6} @media(max-width:560px){.grid{grid-template-columns:1fr}header h1{font-size:1.7rem}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Find the tenant-data leaks <em>before</em> your customers do.</h1>
+  <p>A fixed-fee, read-only audit of your Postgres / Supabase multi-tenant isolation. You get a
+     triaged report with the exact remediation SQL — not a 40-page PDF nobody reads.</p>
+  <a class="cta" href="#book">Book an audit</a>
+  <a class="cta alt" href="#what">See what you get</a>
+</div></header>
+
+<section id="why"><div class="wrap">
+  <h2>One bad policy and tenant A reads tenant B's data</h2>
+  <p class="lead">In multi-tenant SaaS, row-level security <em>is</em> the product boundary. Postgres
+  ships RLS <strong>off by default</strong>, and most managed Postgres grants broad table access by
+  default — so the gap between "we have RLS" and "RLS actually isolates tenants" is where the
+  incident lives. This audit finds that gap while it's still cheap to close.</p>
+  <div class="anchor"><strong>What this replaces:</strong> a security consultant's multi-tenant
+  review runs <strong>$1,500–5,000+</strong> and weeks of calendar time. This is a focused,
+  same-week, fixed-fee version of the one check that matters most before you onboard customer #2.</div>
+</div></section>
+
+<section id="what"><div class="wrap">
+  <h2>What the audit checks</h2>
+  <p class="lead">Seven failure modes that actually leak tenant data in production, in order of blast radius:</p>
+  <ul class="checks">
+    <li><strong>RLS disabled</strong> — tables open to any role with grants <span style="color:var(--crit)">(critical)</span></li>
+    <li><strong>RLS on, zero policies</strong> — a latent gap about to be opened too wide <span style="color:var(--crit)">(critical)</span></li>
+    <li><strong><code>USING(true)</code> policies</strong> — "RLS theatre": the checkbox passes, the policy enforces nothing <span style="color:var(--crit)">(critical)</span></li>
+    <li><strong>Write policies without <code>WITH CHECK</code></strong> — read-isolated but a user can write <em>into</em> another tenant</li>
+    <li><strong>Tables with no tenant column</strong> — un-scopable data (or unflagged global reference)</li>
+    <li><strong>SECURITY DEFINER + mutable <code>search_path</code></strong> — a privilege-escalation surface</li>
+    <li><strong>anon write grants</strong> — defense-in-depth foot-gun</li>
+  </ul>
+  <div class="honest"><strong>Honest about what a finding is.</strong> Each finding flags a
+  <em>pattern worth a human's eyes</em>, not a guaranteed bug — a deliberate <code>USING(true)</code>
+  on shared reference data is fine, for instance. The value is a triaged shortlist + exact
+  remediation SQL + the judgment to tell a real leak from an intentional one. You can re-run the
+  audit after fixes to confirm closure.</div>
+</div></section>
+
+<section id="deliver"><div class="wrap">
+  <h2>What you get</h2>
+  <div class="grid">
+    <div class="card"><h3>📋 A triaged report</h3><p>Findings grouped CRITICAL → HIGH → MEDIUM, each with the object, why it matters, and the exact fix. A clear launch-readiness verdict on the cover.</p></div>
+    <div class="card"><h3>🔧 Copy-paste remediation SQL</h3><p>Every finding ships with the precise <code>ALTER</code>/<code>CREATE POLICY</code> to close it — not "consult a specialist".</p></div>
+    <div class="card"><h3>🔒 Read-only + safe on prod</h3><p>The audit reads catalog metadata only (<code>pg_policies</code>, <code>pg_class</code>). It never reads, writes, or changes your data or policies.</p></div>
+    <div class="card"><h3>🔁 Re-runnable</h3><p>You keep the audit script. Re-run it in CI after every migration to catch isolation regressions before they ship.</p></div>
+  </div>
+</div></section>
+
+<section id="book"><div class="wrap">
+  <h2>Pricing</h2>
+  <div class="price">
+    <div class="tier"><div class="amt">$500</div><div class="per">Audit — fixed fee</div>
+      <ul><li>Full 7-check audit of your live schema</li><li>Triaged report (HTML + PDF)</li><li>Remediation SQL for every finding</li><li>The re-runnable audit script, yours to keep</li><li>Same week</li></ul></div>
+    <div class="tier feature"><div class="amt">$1,500</div><div class="per">Audit + fix — fixed fee</div>
+      <ul><li>Everything in the audit</li><li>I write + PR the remediation migrations</li><li>Before/after re-audit proving closure</li><li>A CI check so regressions can't re-ship</li><li>1 follow-up review</li></ul></div>
+  </div>
+  <p style="margin-top:1.2rem"><a class="cta" href="https://github.com/Kaiser9005">Book an audit — DM me on GitHub →</a></p>
+  <p style="font-size:.85rem;color:#888">Open an issue or start a discussion on any of my repos, or reach me through my <a href="https://github.com/Kaiser9005">GitHub profile</a>. (Dedicated booking email coming soon.)</p>
+</div></section>
+
+<section id="proof"><div class="wrap">
+  <h2>Why me</h2>
+  <div class="proof">
+   I run this exact audit on a production multi-tenant ERP: <strong>447 Postgres tables, 446 of them
+   RLS-enabled</strong> (the one exception is a PostGIS system table), <strong>846 RLS policies</strong>
+   under a single uniform tenant-isolation predicate, hardened through a full SaaS-launch RLS campaign
+   (permissive-overlay sweep, SECURITY-DEFINER <code>search_path</code> locking, shared-reference-table
+   hardening). The audit script here is the tool I use on my own system — see the miniature of the
+   pattern in <a href="https://github.com/Kaiser9005/fastapi-supabase-multitenant-starter">fastapi-supabase-multitenant-starter</a>.
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  Multi-Tenant RLS Readiness Audit · by <a href="https://github.com/Kaiser9005">Kaiser9005</a> ·
+  read-only, fixed-fee, same-week.
+</div></footer>
+</body>
+</html>
